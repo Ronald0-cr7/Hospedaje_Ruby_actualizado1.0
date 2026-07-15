@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Habitaciones - Hotel Ruby</title>
+    <link rel="stylesheet" href="../Estilos/estilos_gestionar_habitaciones.css">
+</head>
+<body>
+    <div class="contenedor-principal">
+        <!-- HEADER -->
+        <div class="header-habitaciones">
+            <h1>HABITACIONES</h1>
+            <p>Dashboard de gestión y disponibilidad de habitaciones</p>
+        </div>
+
+        <!-- GRID DE HABITACIONES -->
+        <div class="grid-habitaciones" id="grid-habitaciones">
+            <!-- Las tarjetas se generan dinámicamente con JavaScript -->
+        </div>
+
+        <!-- PANEL LATERAL -->
+        <aside class="panel-lateral">
+            <!-- ESTADÍSTICAS RÁPIDAS -->
+            <div class="stats-container">
+                <div class="stat-box">
+                    <div class="stat-numero" id="total-disponibles">0</div>
+                    <div class="stat-label">Disponibles</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-numero" id="total-ocupadas">0</div>
+                    <div class="stat-label">Ocupadas</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-numero" id="total-limpieza">0</div>
+                    <div class="stat-label">Limpieza</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-numero" id="total-mantenimiento">0</div>
+                    <div class="stat-label">Mantenimiento</div>
+                </div>
+            </div>
+
+            <!-- LEYENDA DE ESTADOS -->
+            <div class="leyenda-estados">
+                <h3 class="panel-titulo">Estados</h3>
+                <div class="item-leyenda">
+                    <div class="indicador-estado indicador-disponible">✓</div>
+                    <span class="texto-leyenda">Disponible</span>
+                    <span class="numero-leyenda" id="count-disponibles">0</span>
+                </div>
+                <div class="item-leyenda">
+                    <div class="indicador-estado indicador-ocupada">⏱</div>
+                    <span class="texto-leyenda">Ocupada</span>
+                    <span class="numero-leyenda" id="count-ocupadas">0</span>
+                </div>
+                <div class="item-leyenda">
+                    <div class="indicador-estado indicador-limpieza">🧹</div>
+                    <span class="texto-leyenda">Limpieza</span>
+                    <span class="numero-leyenda" id="count-limpieza">0</span>
+                </div>
+                <div class="item-leyenda">
+                    <div class="indicador-estado indicador-mantenimiento">⚙</div>
+                    <span class="texto-leyenda">Mantenimiento</span>
+                    <span class="numero-leyenda" id="count-mantenimiento">0</span>
+                </div>
+            </div>
+
+            <!-- BOTONES DE ACCIONES -->
+            <div class="botones-panel">
+                <button class="btn-panel btn-nueva-reserva" onclick="abrirModal()">
+                    <span>📅</span>
+                    Nueva Reserva
+                </button>
+                <button class="btn-panel btn-checkout" onclick="abrirCheckout()">
+                    <span>💰</span>
+                    Check-Out y Facturación
+                </button>
+                <button class="btn-panel btn-volver" onclick="volverPanel()">
+                    ← Volver al Panel
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- MODAL DE CAMBIO DE ESTADO -->
+    <div class="modal-overlay" id="modal-estado">
+        <div class="modal-contenido">
+            <h2 class="modal-titulo">Cambiar Estado</h2>
+            <p style="text-align: center; color: #666; margin-bottom: 20px; font-weight: 500;">
+                Habitación <span id="habitacion-numero-modal">-</span>
+            </p>
+            <div class="modal-opciones" id="opciones-estado">
+                <!-- Se genera dinámicamente -->
+            </div>
+            <button class="btn-cerrar-modal" onclick="cerrarModal()">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- MODAL DE RESERVA RÁPIDA DESDE LA HABITACIÓN -->
+    <div class="modal-overlay" id="modal-reserva">
+        <div class="modal-contenido modal-reserva-contenido">
+            <h2 class="modal-titulo">Nueva Reserva</h2>
+            <p style="text-align:center;color:#666;margin-bottom:18px;font-weight:500;">
+                Habitación <span id="reserva-habitacion-numero">-</span> · <span id="reserva-habitacion-tipo">-</span>
+            </p>
+            <form id="form-reserva-rapida" class="form-reserva-rapida">
+                <input type="hidden" id="rr-id-reserva">
+                <input type="hidden" id="rr-numero-habitacion">
+                <input type="hidden" id="rr-id-habitacion">
+
+                <div class="campo-reserva">
+                    <label for="rr-cliente-registrado">Cliente registrado:</label>
+                    <select id="rr-cliente-registrado">
+                        <option value="">-- Cliente nuevo --</option>
+                    </select>
+                </div>
+                <div class="campo-reserva">
+                    <label for="rr-cliente-nombre">Nombre completo:</label>
+                    <input type="text" id="rr-cliente-nombre" required>
+                </div>
+                <div class="fila-2col">
+                    <div class="campo-reserva">
+                        <label for="rr-cliente-dni">DNI:</label>
+                        <input type="text" id="rr-cliente-dni" maxlength="8" inputmode="numeric" required>
+                    </div>
+                    <div class="campo-reserva">
+                        <label for="rr-cliente-fecha-nac">Fecha nacimiento:</label>
+                        <input type="date" id="rr-cliente-fecha-nac">
+                    </div>
+                </div>
+                <div class="campo-reserva">
+                    <label for="rr-cliente-residencia">Residencia:</label>
+                    <input type="text" id="rr-cliente-residencia">
+                </div>
+                <div class="fila-2col">
+                    <div class="campo-reserva">
+                        <label for="rr-fecha-entrada">Entrada:</label>
+                        <input type="datetime-local" id="rr-fecha-entrada" required>
+                    </div>
+                    <div class="campo-reserva">
+                        <label for="rr-fecha-salida">Salida:</label>
+                        <input type="datetime-local" id="rr-fecha-salida" required>
+                    </div>
+                </div>
+                <div class="fila-2col">
+                    <div class="campo-reserva">
+                        <label for="rr-precio-base">Tarifa / 12h (S/):</label>
+                        <input type="number" id="rr-precio-base" min="0" step="0.01" required>
+                    </div>
+                    <div class="campo-reserva">
+                        <label for="rr-bloques">Bloques de 12h:</label>
+                        <input type="number" id="rr-bloques" readonly>
+                    </div>
+                </div>
+                <div class="fila-2col">
+                    <div class="campo-reserva">
+                        <label for="rr-metodo-pago">Método de pago:</label>
+                        <select id="rr-metodo-pago" required>
+                            <option value="">Seleccione</option>
+                        </select>
+                    </div>
+                    <div class="campo-reserva">
+                        <label for="rr-importe-total">Importe total (S/):</label>
+                        <input type="number" id="rr-importe-total" readonly>
+                    </div>
+                </div>
+                <p class="rr-id-preview">ID de reserva: <strong id="rr-id-preview">-</strong> <span>(generado automáticamente)</span></p>
+
+                <div class="botones-modal-reserva">
+                    <button type="submit" class="btn-confirmar-reserva">✔ Confirmar Reserva</button>
+                    <button type="button" class="btn-cerrar-modal" id="btn-cancelar-reserva">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../Interactividad_js/supabaseClient.js"></script>
+    <script src="../Interactividad_js/tema.js"></script>
+    <script src="../Interactividad_js/gestionar_habitaciones.js"></script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Estadístico</title>
+    <link rel="stylesheet" href="../Estilos/estilos_dashboard.css">
+    <style>
+        .acciones-reporte { display:flex; gap:12px; flex-wrap:wrap; margin:16px 0; }
+        .btn-reporte { display:inline-flex; align-items:center; gap:8px; padding:11px 20px; border:none; border-radius:12px; font-size:.88rem; font-weight:700; cursor:pointer; transition:.2s; }
+        .btn-pdf { background:linear-gradient(135deg,#dc2626,#ef4444); color:#fff; }
+        .btn-pdf:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(220,38,38,.35); }
+        .btn-excel { background:linear-gradient(135deg,#16a34a,#22c55e); color:#fff; }
+        .btn-excel:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(22,163,74,.35); }
+        .metodo-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #e5e7eb; }
+        .metodo-row:last-child { border-bottom:none; }
+        .metodo-barra { height:6px; background:#3b82f6; border-radius:3px; margin-top:4px; transition:width .4s; }
+        .seccion-metodos { margin-top:8px; }
+    </style>
+</head>
+<body>
+    <main class="dashboard">
+        <section class="hero">
+            <div>
+                <p class="eyebrow">Hospedaje Ruby</p>
+                <h1>Dashboard estadístico</h1>
+                <p class="subtitulo">Controla ganancias de reservas, ventas, ocupación y comportamiento de clientes.</p>
+            </div>
+            <div class="hero-actions">
+                <button type="button" onclick="window.location.href='panel_control.html'">← Volver al panel</button>
+            </div>
+        </section>
+
+        <!-- REQUISITO 11: Botones PDF y Excel -->
+        <div class="acciones-reporte">
+            <button class="btn-reporte btn-pdf" id="btn-pdf-reporte">📄 Generar PDF de Reportes</button>
+            <button class="btn-reporte btn-excel" id="btn-excel-clientes">📊 Excel con Datos de Clientes</button>
+        </div>
+
+        <section class="kpis">
+            <article class="kpi accent-1"><span id="kpi-ingresos-reservas">S/ 0.00</span><small>Ingresos por reservas</small></article>
+            <article class="kpi accent-2"><span id="kpi-ingresos-ventas">S/ 0.00</span><small>Ingresos por ventas</small></article>
+            <article class="kpi accent-3"><span id="kpi-ingresos-total">S/ 0.00</span><small>Ingreso total</small></article>
+            <article class="kpi accent-4"><span id="kpi-clientes">0</span><small>Clientes registrados</small></article>
+        </section>
+
+        <section class="grid-principal">
+            <article class="panel panel-anchos">
+                <div class="panel-head"><h2>Ocupación de habitaciones</h2><p>Distribución actual por estado</p></div>
+                <div id="ocupacion-lista" class="lista-metricas"></div>
+            </article>
+            <article class="panel panel-anchos">
+                <div class="panel-head"><h2>Ingresos por método de pago</h2><p>Reservas y ventas agrupadas</p></div>
+                <div class="seccion-metodos">
+                    <strong style="color:#1e40af;font-size:.82rem;">🛏 RESERVAS</strong>
+                    <div id="metodos-reservas" class="lista-metricas"></div>
+                    <br>
+                    <strong style="color:#16a34a;font-size:.82rem;">🛒 VENTAS</strong>
+                    <div id="metodos-lista" class="lista-metricas"></div>
+                </div>
+            </article>
+        </section>
+
+        <section class="grid-principal">
+            <article class="panel">
+                <div class="panel-head"><h2>Top productos vendidos</h2><p>Unidades vendidas en recepción</p></div>
+                <div id="top-productos" class="lista-metricas"></div>
+            </article>
+            <article class="panel">
+                <div class="panel-head"><h2>Clientes activos</h2><p>Clientes con reservas o compras</p></div>
+                <div id="clientes-activos" class="lista-metricas"></div>
+            </article>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../Interactividad_js/supabaseClient.js"></script>
+    <script src="../Interactividad_js/rol_guard.js"></script>
+    <script src="../Interactividad_js/tema.js"></script>
+    <script src="../Interactividad_js/reportes.js"></script>
+    <script src="../Interactividad_js/panel_estadistico.js"></script>
+    <script>
+    document.getElementById('btn-pdf-reporte').addEventListener('click', async () => {
+        const fechaFin = new Date();
+        const fechaInicio = new Date();
+        fechaInicio.setDate(fechaInicio.getDate() - 30);
+
+        const { data: reservasData, error: errorReservas } = await supabaseClient
+            .from('reserva_habitacion')
+            .select(`
+                reserva_id, fecha_entrada, fecha_salida, importe_total,
+                clientes(apellidos_nombres, dni),
+                habitaciones(numero_habitacion),
+                metodo_pago(nombre)
+            `)
+            .order('fecha_entrada', { ascending: false });
+
+        if (errorReservas) {
+            manejarErrorSupabase(errorReservas, 'No se pudieron cargar las reservas para el reporte PDF.');
+            return;
+        }
+
+        const reservas = (reservasData || []).map(r => ({
+            reserva_id: r.reserva_id,
+            fecha_entrada: r.fecha_entrada,
+            fecha_salida: r.fecha_salida,
+            importe_total: Number(r.importe_total || 0),
+            apellidos_nombres: r.clientes?.apellidos_nombres || '—',
+            dni: r.clientes?.dni || '—',
+            numero_habitacion: r.habitaciones?.numero_habitacion || '—',
+            metodo_pago: r.metodo_pago?.nombre || 'No registrado'
+        }));
+
+        const { data: ventasData, error: errorVentas } = await supabaseClient
+            .from('ventas')
+            .select(`
+                venta_id, fecha_hora_venta, cliente_nombre, subtotal, igv, total,
+                metodo_pago(nombre)
+            `)
+            .order('fecha_hora_venta', { ascending: false });
+
+        if (errorVentas) {
+            manejarErrorSupabase(errorVentas, 'No se pudieron cargar las ventas para el reporte PDF.');
+            return;
+        }
+
+        const ventas = (ventasData || []).map(v => ({
+            venta_id: v.venta_id,
+            fecha_hora_venta: v.fecha_hora_venta,
+            cliente_nombre: v.cliente_nombre || 'Venta sin cliente',
+            subtotal: Number(v.subtotal || 0),
+            igv: Number(v.igv || 0),
+            total: Number(v.total || 0),
+            metodo_pago: v.metodo_pago?.nombre || 'No registrado'
+        }));
+
+        await generarReportePDFCombinado(fechaInicio, fechaFin, reservas, ventas);
+    });
+
+    // REQUISITO 11: Excel con datos de clientes
+    document.getElementById('btn-excel-clientes').addEventListener('click', async () => {
+        if (typeof XLSX === 'undefined') { alert('No se pudo cargar la librería Excel.'); return; }
+        const { data: clientesData, error: errClientes } = await supabaseClient
+            .from('clientes')
+            .select('id_cliente, apellidos_nombres, dni, distrito_ciudad, telefono');
+        if (errClientes) { manejarErrorSupabase(errClientes, 'No se pudieron cargar los clientes.'); return; }
+
+        const { data: reservasData, error: errReservas } = await supabaseClient
+            .from('reserva_habitacion')
+            .select('id_cliente, importe_total');
+        if (errReservas) { manejarErrorSupabase(errReservas, 'No se pudieron cargar las reservas.'); return; }
+
+        const { data: ventasData, error: errVentas } = await supabaseClient
+            .from('ventas')
+            .select('id_cliente, total');
+        if (errVentas) { manejarErrorSupabase(errVentas, 'No se pudieron cargar las ventas.'); return; }
+
+        const clientes = clientesData || [];
+        const reservas = reservasData || [];
+        const ventas = ventasData || [];
+
+        const filas = clientes.map(c => {
+            const r = reservas.filter(x => String(x.clienteId) === String(c.id_cliente));
+            const v = ventas.filter(x => String(x.clienteId) === String(c.id_cliente));
+            const tR = r.reduce((s, x) => s + Number(x.importeTotal || 0), 0);
+            const tV = v.reduce((s, x) => s + Number(x.total || 0), 0);
+            return {
+                ID: c.id_cliente, Nombre: c.apellidos_nombres, DNI: c.dni,
+                Distrito: c.distrito_ciudad, Telefono: c.telefono,
+                N_Reservas: r.length, Total_Reservas: tR.toFixed(2),
+                N_Ventas: v.length, Total_Ventas: tV.toFixed(2),
+                Consumo_Total: (tR + tV).toFixed(2)
+            };
+        });
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Clientes');
+        XLSX.writeFile(wb, `clientes_reporte_${new Date().toISOString().slice(0,10)}.xlsx`);
+    });
+    </script>
+</body>
+</html>
