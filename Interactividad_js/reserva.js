@@ -4,6 +4,9 @@
 const reservaForm = document.getElementById("reserva-form");
 const inventoryBody = document.getElementById("inventory-body");
 const clienteRegistrado = document.getElementById("cliente-registrado");
+const buscadorCliente = document.getElementById("buscador-cliente");
+const listaClientesSugeridos = document.getElementById("lista-clientes-sugeridos");
+const clienteSeleccionadoInfo = document.getElementById("cliente-seleccionado-info");
 const resumenMetodosReservas = document.getElementById("resumen-metodos-reservas");
 const totalReservasMetodos = document.getElementById("total-reservas-metodos");
 
@@ -200,6 +203,82 @@ function cargarClienteSeleccionado() {
 	if (campos.clienteDni)            campos.clienteDni.value = c.dni;
 	if (campos.clienteResidencia)     campos.clienteResidencia.value = c.distrito_ciudad || '';
 	habilitarCamposCliente(true);
+}
+
+// ── BUSCADOR DE CLIENTE (por nombre o DNI) ─────────────────────
+
+function textoClienteBuscador(c) {
+	return `${c.apellidos_nombres} — DNI: ${c.dni}`;
+}
+
+function renderSugerenciasClientes(filtro) {
+	if (!listaClientesSugeridos) return;
+	const texto = filtro.trim().toLowerCase();
+
+	if (!texto) { listaClientesSugeridos.style.display = "none"; listaClientesSugeridos.innerHTML = ""; return; }
+
+	const coincidencias = clientes.filter(c =>
+		(c.apellidos_nombres || '').toLowerCase().includes(texto) ||
+		String(c.dni || '').toLowerCase().includes(texto)
+	).slice(0, 8);
+
+	listaClientesSugeridos.innerHTML = "";
+
+	if (!coincidencias.length) {
+		const vacio = document.createElement('div');
+		vacio.className = 'item-sugerencia sin-resultado';
+		vacio.textContent = 'Sin coincidencias — al registrar la reserva se guardará como cliente nuevo';
+		listaClientesSugeridos.appendChild(vacio);
+		listaClientesSugeridos.style.display = "block";
+		return;
+	}
+
+	coincidencias.forEach(c => {
+		const item = document.createElement('div');
+		item.className = 'item-sugerencia';
+		item.innerHTML = `
+			<div class="item-sugerencia-info">
+				<div class="item-sugerencia-nombre">${(c.apellidos_nombres || '').toUpperCase()}</div>
+				<div class="item-sugerencia-dni"><span class="badge-dni-icono">🪪</span> DNI - ${c.dni}</div>
+			</div>
+			<button type="button" class="btn-agregar-cliente" aria-label="Seleccionar cliente">+</button>
+		`;
+		item.addEventListener('click', () => seleccionarClienteDesdeBusqueda(c));
+		listaClientesSugeridos.appendChild(item);
+	});
+	listaClientesSugeridos.style.display = "block";
+}
+
+function seleccionarClienteDesdeBusqueda(c) {
+	clienteRegistrado.value = c.id_cliente;
+	cargarClienteSeleccionado();
+	if (buscadorCliente) buscadorCliente.value = textoClienteBuscador(c);
+	if (clienteSeleccionadoInfo) clienteSeleccionadoInfo.innerHTML = `✅ <strong>${c.apellidos_nombres.toUpperCase()}</strong> — DNI ${c.dni}`;
+	if (listaClientesSugeridos) { listaClientesSugeridos.style.display = "none"; listaClientesSugeridos.innerHTML = ""; }
+}
+
+function limpiarBusquedaCliente() {
+	if (buscadorCliente) buscadorCliente.value = "";
+	if (clienteSeleccionadoInfo) clienteSeleccionadoInfo.textContent = "";
+	if (listaClientesSugeridos) { listaClientesSugeridos.style.display = "none"; listaClientesSugeridos.innerHTML = ""; }
+}
+
+if (buscadorCliente) {
+	buscadorCliente.addEventListener("input", () => {
+		// Si el usuario edita el texto tras haber elegido un cliente, se invalida la selección
+		if (clienteRegistrado.value) {
+			clienteRegistrado.value = "";
+			cargarClienteSeleccionado();
+			if (clienteSeleccionadoInfo) clienteSeleccionadoInfo.textContent = "";
+		}
+		renderSugerenciasClientes(buscadorCliente.value);
+	});
+	buscadorCliente.addEventListener("focus", () => renderSugerenciasClientes(buscadorCliente.value));
+	document.addEventListener("click", (e) => {
+		if (!e.target.closest(".buscador-cliente-wrapper")) {
+			if (listaClientesSugeridos) listaClientesSugeridos.style.display = "none";
+		}
+	});
 }
 
 function clienteExistePorDni(dni) {
@@ -410,6 +489,11 @@ function llenarFormularioDesdeDatos(d) {
 	campos.metodoPago.value       = d.metodoPago || "";
 	campos.estadoHabitacion.value = d.estadoHabitacion;
 	if (clienteRegistrado) clienteRegistrado.value = d.clienteId || "";
+	if (buscadorCliente) {
+		const c = clientes.find(x => x.id_cliente === d.clienteId);
+		buscadorCliente.value = c ? textoClienteBuscador(c) : (d.clienteNombre || "");
+	}
+	if (clienteSeleccionadoInfo) clienteSeleccionadoInfo.innerHTML = d.clienteId ? `✅ <strong>${(d.clienteNombre || '').toUpperCase()}</strong>` : "";
 	actualizarDisponibilidadHabitaciones();
 }
 
@@ -718,6 +802,7 @@ reservaForm.addEventListener("submit", async (e) => {
 		campos.importeTotal.value = "";
 		filaEditando = null;
 		if (clienteRegistrado) clienteRegistrado.value = "";
+		limpiarBusquedaCliente();
 
 		await cargarTodoYRenderizar();
 	} catch (error) {
