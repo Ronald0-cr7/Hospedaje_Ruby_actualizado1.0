@@ -65,7 +65,7 @@
 
                 <div>
                     <label for="noches-estadia">Bloques de 12 horas:</label>
-                    <input type="number" id="noches-estadia" min="1" step="1" readonly>
+                    <input type="number" id="noches-estadia" min="1" step="1" value="1" required>
                 </div>
 
                 <div>
@@ -73,10 +73,9 @@
                     <input type="datetime-local" id="fecha_entrada" name="fecha_entrada" required>
                 </div>
 
-                <div>
-                    <label for="fecha_salida">Fecha y hora de salida:</label>
-                    <input type="datetime-local" id="fecha_salida" name="fecha_salida" required>
-                </div>
+                <!-- La fecha de salida ya no se ingresa manualmente: se registra
+                     automáticamente al presionar "Registrar salida" en el módulo
+                     de Habitaciones, usando el tiempo transcurrido del temporizador. -->
 
                 <div>
                     <label for="importe-total">Importe Total (S/) :</label>
