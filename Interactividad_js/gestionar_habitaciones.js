@@ -50,12 +50,14 @@ async function cargarHabitaciones() {
 }
 
 async function cargarReservasActivas() {
-    const ahora = new Date().toISOString();
+    // Ya no se filtra por fecha_salida: esa fecha ya no se ingresa manualmente al
+    // crear la reserva (se guarda un valor provisional igual a fecha_entrada) y
+    // solo pasa a ser real cuando se presiona "Registrar salida". Por eso una
+    // reserva se considera activa únicamente mientras estado_habitacion = 'Ocupada'.
     const { data, error } = await supabaseClient
         .from('reserva_habitacion')
         .select('reserva_id, id_habitacion, fecha_salida, estado_habitacion, clientes(apellidos_nombres)')
-        .eq('estado_habitacion', 'Ocupada')
-        .gt('fecha_salida', ahora);
+        .eq('estado_habitacion', 'Ocupada');
 
     if (error) { manejarErrorSupabase(error, 'No se pudieron cargar las reservas activas.'); return; }
 
@@ -148,7 +150,7 @@ async function cambiarEstado(numero, nuevoEstado) {
     if (hab.estado === "Ocupada") {
         const reservaActiva = reservasActivas[numero];
         if (reservaActiva) {
-            alert(`⚠️ La habitación ${numero} está en uso activo.\nCliente: ${reservaActiva.clienteNombre}\nSalida: ${new Date(reservaActiva.fechaSalida).toLocaleString('es-PE')}\n\nNo se puede cambiar el estado mientras esté ocupada.`);
+            alert(`⚠️ La habitación ${numero} está en uso activo.\nCliente: ${reservaActiva.clienteNombre}\n\nNo se puede cambiar el estado mientras esté ocupada. Usa "Registrar salida" primero.`);
             cerrarModal();
             return;
         }
@@ -298,7 +300,7 @@ function abrirModalCambioEstado(numero) {
                 <div style="font-size:1.5rem;margin-bottom:6px;">🔒</div>
                 <strong>Habitación en uso activo</strong><br>
                 <small>Cliente: ${reservaActiva.clienteNombre}</small><br>
-                <small>Salida programada: ${new Date(reservaActiva.fechaSalida).toLocaleString('es-PE')}</small>
+                <small>Salida: se registra al presionar "Registrar salida"</small>
             </div>
         `;
         const btnSalida = document.createElement("button");
@@ -381,8 +383,7 @@ function abrirModalReserva(numero) {
     // Fecha de entrada por defecto: ahora mismo
     const ahora = new Date();
     document.getElementById("rr-fecha-entrada").value = fechaLocalInputValue(ahora);
-    document.getElementById("rr-fecha-salida").value = "";
-    document.getElementById("rr-bloques").value = "";
+    document.getElementById("rr-bloques").value = "1";
     document.getElementById("rr-importe-total").value = "";
 
     poblarSelectClientesRapido();
@@ -397,20 +398,18 @@ function cerrarModalReserva() {
 }
 
 function calcularImporteReservaRapida() {
+    // Los "bloques de 12h" ahora se ingresan directamente (estimado inicial),
+    // ya que la fecha de salida real solo se conoce al presionar "Registrar salida".
     const precio = Number(document.getElementById("rr-precio-base").value);
-    const entrada = new Date(document.getElementById("rr-fecha-entrada").value);
-    const salida = new Date(document.getElementById("rr-fecha-salida").value);
+    const bloques = Math.max(1, Math.floor(Number(document.getElementById("rr-bloques").value)) || 1);
+    document.getElementById("rr-bloques").value = String(bloques);
 
-    if (!precio || isNaN(entrada) || isNaN(salida) || salida <= entrada) {
-        document.getElementById("rr-bloques").value = "";
+    if (!precio) {
         document.getElementById("rr-importe-total").value = "";
         return 0;
     }
 
-    const bloques = Math.max(1, Math.ceil((salida - entrada) / (1000 * 60 * 60 * 12)));
     const total = precio * bloques;
-
-    document.getElementById("rr-bloques").value = String(bloques);
     document.getElementById("rr-importe-total").value = total.toFixed(2);
     return total;
 }
@@ -456,17 +455,15 @@ async function manejarSubmitReservaRapida(e) {
     const fechaNacimiento = document.getElementById("rr-cliente-fecha-nac").value;
     const residencia = document.getElementById("rr-cliente-residencia").value.trim();
     const fechaEntrada = document.getElementById("rr-fecha-entrada").value;
-    const fechaSalida = document.getElementById("rr-fecha-salida").value;
     const metodoPago = document.getElementById("rr-metodo-pago").value;
 
     if (!nombre) { alert("Ingresa el nombre del cliente."); return; }
     if (!/^\d{8}$/.test(dni)) { alert("El DNI debe tener exactamente 8 dígitos."); return; }
-    if (!fechaEntrada || !fechaSalida) { alert("Ingresa las fechas de entrada y salida."); return; }
-    if (new Date(fechaSalida) <= new Date(fechaEntrada)) { alert("La fecha de salida debe ser posterior a la de entrada."); return; }
+    if (!fechaEntrada) { alert("Ingresa la fecha de entrada."); return; }
     if (!metodoPago) { alert("Selecciona un método de pago."); return; }
 
     const total = calcularImporteReservaRapida();
-    if (!total) { alert("Revisa las fechas y la tarifa por bloque."); return; }
+    if (!total) { alert("Revisa los bloques de 12h y la tarifa."); return; }
 
     const metodoSeleccionado = metodosPagoReserva.find(m => m.nombre === metodoPago);
     if (!metodoSeleccionado) { alert("Método de pago inválido."); return; }
@@ -478,15 +475,21 @@ async function manejarSubmitReservaRapida(e) {
         const resultado = await guardarClienteRapido({ nombre, dni, fechaNacimiento, residencia });
 
         const reservaId = document.getElementById("rr-id-reserva").value; // generado automáticamente al abrir el modal
+        const bloquesReserva = Number(document.getElementById("rr-bloques").value) || 1;
+        const entradaMs = new Date(fechaEntrada).getTime();
         const datosReserva = {
             reserva_id: reservaId,
             id_cliente: resultado.cliente.id_cliente,
             id_habitacion: idHabitacion,
             id_metodo_pago: metodoSeleccionado.id_metodo_pago,
             fecha_entrada: new Date(fechaEntrada).toISOString(),
-            fecha_salida: new Date(fechaSalida).toISOString(),
+            // Valor provisional: la base exige fecha_salida > fecha_entrada
+            // (chk_reserva_fechas), así que se guarda entrada + bloques de 12h
+            // hasta que el usuario presiona "Registrar salida", que lo reemplaza
+            // por la hora real de salida.
+            fecha_salida: new Date(entradaMs + bloquesReserva * 12 * 60 * 60 * 1000).toISOString(),
             precio_base: Number(document.getElementById("rr-precio-base").value),
-            noches_estadia: Number(document.getElementById("rr-bloques").value) || 1,
+            noches_estadia: bloquesReserva,
             importe_total: total,
             estado_habitacion: "Ocupada"
         };
@@ -509,7 +512,8 @@ async function manejarSubmitReservaRapida(e) {
 
         alert(`✅ Reserva ${reservaId} creada. La habitación ${numeroHabitacion} quedó Ocupada con temporizador activo.`);
     } catch (error) {
-        manejarErrorSupabase(error, 'No se pudo crear la reserva.');
+        const detalle = [error?.message, error?.details, error?.hint].filter(Boolean).join(' | ');
+        manejarErrorSupabase(error, `No se pudo crear la reserva: ${detalle || error}`);
     } finally {
         if (btnSubmit) btnSubmit.disabled = false;
     }
@@ -583,7 +587,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const selCliente = document.getElementById("rr-cliente-registrado");
     if (selCliente) selCliente.addEventListener("change", autocompletarClienteRapido);
 
-    ["rr-precio-base", "rr-fecha-entrada", "rr-fecha-salida"].forEach(id => {
+    ["rr-precio-base", "rr-bloques"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("input", calcularImporteReservaRapida);
         if (el) el.addEventListener("change", calcularImporteReservaRapida);
