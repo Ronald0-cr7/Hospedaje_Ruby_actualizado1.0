@@ -388,6 +388,7 @@ function abrirModalReserva(numero) {
 
     poblarSelectClientesRapido();
     poblarSelectMetodoPagoRapido();
+    limpiarBusquedaClienteRapido();
 
     modal.classList.add("activo");
     document.getElementById("rr-cliente-nombre").focus();
@@ -422,6 +423,75 @@ function autocompletarClienteRapido() {
     document.getElementById("rr-cliente-dni").value = opt.dataset.dni || "";
     document.getElementById("rr-cliente-fecha-nac").value = opt.dataset.fechaNac || "";
     document.getElementById("rr-cliente-residencia").value = opt.dataset.residencia || "";
+}
+
+// ── BUSCADOR DE CLIENTE (por nombre o DNI) — reserva rápida ────
+
+function textoClienteBuscadorRapido(c) {
+    return `${c.apellidos_nombres} — DNI: ${c.dni}`;
+}
+
+function renderSugerenciasClientesRapido(filtro) {
+    const lista = document.getElementById("rr-lista-clientes-sugeridos");
+    if (!lista) return;
+    const texto = filtro.trim().toLowerCase();
+
+    if (!texto) { lista.style.display = "none"; lista.innerHTML = ""; return; }
+
+    const coincidencias = clientesReserva.filter(c =>
+        (c.apellidos_nombres || '').toLowerCase().includes(texto) ||
+        String(c.dni || '').toLowerCase().includes(texto)
+    ).slice(0, 8);
+
+    lista.innerHTML = "";
+
+    if (!coincidencias.length) {
+        const vacio = document.createElement('div');
+        vacio.className = 'item-sugerencia sin-resultado';
+        vacio.textContent = 'Sin coincidencias — se registrará como cliente nuevo';
+        lista.appendChild(vacio);
+        lista.style.display = "block";
+        return;
+    }
+
+    coincidencias.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'item-sugerencia';
+        item.innerHTML = `
+            <div class="item-sugerencia-info">
+                <div class="item-sugerencia-nombre">${(c.apellidos_nombres || '').toUpperCase()}</div>
+                <div class="item-sugerencia-dni"><span class="badge-dni-icono">🪪</span> DNI - ${c.dni}</div>
+            </div>
+            <button type="button" class="btn-agregar-cliente" aria-label="Seleccionar cliente">+</button>
+        `;
+        item.addEventListener('click', () => seleccionarClienteRapidoDesdeBusqueda(c));
+        lista.appendChild(item);
+    });
+    lista.style.display = "block";
+}
+
+function seleccionarClienteRapidoDesdeBusqueda(c) {
+    const sel = document.getElementById("rr-cliente-registrado");
+    const info = document.getElementById("rr-cliente-seleccionado-info");
+    const buscador = document.getElementById("rr-buscador-cliente");
+    const lista = document.getElementById("rr-lista-clientes-sugeridos");
+
+    if (sel) sel.value = c.id_cliente;
+    autocompletarClienteRapido();
+    if (buscador) buscador.value = textoClienteBuscadorRapido(c);
+    if (info) info.innerHTML = `✅ <strong>${c.apellidos_nombres.toUpperCase()}</strong> — DNI ${c.dni}`;
+    if (lista) { lista.style.display = "none"; lista.innerHTML = ""; }
+}
+
+function limpiarBusquedaClienteRapido() {
+    const buscador = document.getElementById("rr-buscador-cliente");
+    const info = document.getElementById("rr-cliente-seleccionado-info");
+    const lista = document.getElementById("rr-lista-clientes-sugeridos");
+    const sel = document.getElementById("rr-cliente-registrado");
+    if (buscador) buscador.value = "";
+    if (info) info.textContent = "";
+    if (lista) { lista.style.display = "none"; lista.innerHTML = ""; }
+    if (sel) sel.value = "";
 }
 
 async function guardarClienteRapido(datos) {
@@ -586,6 +656,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const selCliente = document.getElementById("rr-cliente-registrado");
     if (selCliente) selCliente.addEventListener("change", autocompletarClienteRapido);
+
+    const buscadorClienteRapido = document.getElementById("rr-buscador-cliente");
+    if (buscadorClienteRapido) {
+        buscadorClienteRapido.addEventListener("input", () => {
+            const sel = document.getElementById("rr-cliente-registrado");
+            const info = document.getElementById("rr-cliente-seleccionado-info");
+            if (sel && sel.value) {
+                sel.value = "";
+                if (info) info.textContent = "";
+            }
+            renderSugerenciasClientesRapido(buscadorClienteRapido.value);
+        });
+        buscadorClienteRapido.addEventListener("focus", () => renderSugerenciasClientesRapido(buscadorClienteRapido.value));
+        document.addEventListener("click", (e) => {
+            if (!e.target.closest("#modal-reserva .buscador-cliente-wrapper")) {
+                const lista = document.getElementById("rr-lista-clientes-sugeridos");
+                if (lista) lista.style.display = "none";
+            }
+        });
+    }
 
     ["rr-precio-base", "rr-bloques"].forEach(id => {
         const el = document.getElementById(id);
