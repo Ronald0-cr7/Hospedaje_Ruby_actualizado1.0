@@ -19,7 +19,6 @@ const campos = {
 	precioBase:             document.getElementById("precio-base"),
 	nochesEstadia:          document.getElementById("noches-estadia"),
 	fechaEntrada:           document.getElementById("fecha_entrada"),
-	fechaSalida:            document.getElementById("fecha_salida"),
 	importeTotal:           document.getElementById("importe-total"),
 	metodoPago:             document.getElementById("metodo-pago"),
 	estadoHabitacion:       document.getElementById("estado-habitacion")
@@ -273,11 +272,17 @@ function actualizarDisponibilidadHabitaciones() {
 
 function asignarTipoHabitacionAutomaticamente() {
 	const num = campos.numeroHabitacion.value;
-	if (!num) { campos.tipoHabitacion.value = ""; campos.precioBase.value = ""; return; }
+	if (!num) { campos.tipoHabitacion.value = ""; campos.precioBase.value = ""; campos.importeTotal.value = ""; return; }
 	const op = campos.numeroHabitacion.querySelector(`option[value="${num}"]`);
 	if (op) {
 		campos.tipoHabitacion.value = op.dataset.tipo;
-		if (!campos.precioBase.value) campos.precioBase.value = Number(op.dataset.precio || 0).toFixed(2);
+		// Antes solo se autocompletaba si el campo estaba vacío, por lo que al
+		// cambiar de habitación la tarifa se quedaba "pegada" al valor anterior
+		// y el importe total terminaba calculado con un precio incorrecto.
+		// Ahora la tarifa siempre refleja el precio_base real de la habitación
+		// seleccionada. Si el usuario necesita una tarifa especial, puede
+		// editarla manualmente después de elegir la habitación.
+		campos.precioBase.value = Number(op.dataset.precio || 0).toFixed(2);
 	}
 }
 
@@ -295,22 +300,23 @@ function calcularNochesDesdeFechas(entrada, salida) {
 }
 
 function calcularImporteTotal() {
+	// La fecha de salida ya no se ingresa manualmente: los "bloques de 12 horas"
+	// ahora son un campo editable (estimado inicial de la estadía). El importe
+	// real, si el huésped se queda más o menos tiempo, ya no depende de este
+	// cálculo, sino de lo que se registre al presionar "Registrar salida".
 	const precio  = normalizarNumero(campos.precioBase.value);
-	const entrada = new Date(campos.fechaEntrada.value);
-	const salida  = new Date(campos.fechaSalida.value);
+	const bloques = Math.max(1, Math.floor(normalizarNumero(campos.nochesEstadia.value)) || 1);
 
-	if (!precio || isNaN(entrada) || isNaN(salida) || salida <= entrada) {
-		campos.nochesEstadia.value = "";
-		campos.importeTotal.value  = "";
+	if (!precio) {
+		campos.importeTotal.value = "";
 		return 0;
 	}
 
-	const bloques = Math.max(1, Math.ceil((salida - entrada) / (1000 * 60 * 60 * 12)));
-	const total   = precio * bloques;
-
 	campos.nochesEstadia.value = String(bloques);
-	campos.precioBase.value    = Number(precio).toFixed(2);
-	campos.importeTotal.value  = total.toFixed(2);
+	const total = precio * bloques;
+
+	campos.precioBase.value   = Number(precio).toFixed(2);
+	campos.importeTotal.value = total.toFixed(2);
 	return total;
 }
 
@@ -320,6 +326,16 @@ function formatearFecha(iso) {
 	const f = new Date(iso);
 	if (isNaN(f)) return "";
 	return f.toLocaleString("es-PE", { year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
+}
+
+// Mientras no se presiona "Registrar salida" (módulo Habitaciones), fecha_salida
+// guarda un valor provisional (entrada + bloques estimados). Se muestra "En curso"
+// en vez de esa fecha para no confundirla con una salida real: el estado real de
+// la reserva (estado_habitacion) es la fuente de verdad de si ya hubo checkout.
+function formatearSalida(d) {
+	if (!d.fechaSalida) return "—";
+	if (d.estadoHabitacion === 'Ocupada') return "En curso";
+	return formatearFecha(d.fechaSalida);
 }
 
 function badgeEstado(estado) {
@@ -357,7 +373,7 @@ function crearFilaDesdeDatos(d) {
 		<td>S/ ${Number(d.precioBase).toFixed(2)}</td>
 		<td>${noches}</td>
 		<td>${formatearFecha(d.fechaEntrada)}</td>
-		<td>${formatearFecha(d.fechaSalida)}</td>
+		<td>${formatearSalida(d)}</td>
 		<td>S/ ${Number(d.importeTotal).toFixed(2)}</td>
 		<td>${d.metodoPago || "No registrado"}</td>
 		<td>${badgeEstado(d.estadoHabitacion)}</td>
@@ -388,8 +404,8 @@ function llenarFormularioDesdeDatos(d) {
 	campos.numeroHabitacion.value = d.numeroHabitacion;
 	campos.tipoHabitacion.value   = d.tipoHabitacion;
 	campos.precioBase.value       = Number(d.precioBase).toFixed(2);
+	campos.nochesEstadia.value    = d.nochesEstadia || 1;
 	campos.fechaEntrada.value     = d.fechaEntrada ? d.fechaEntrada.slice(0, 16) : '';
-	campos.fechaSalida.value      = d.fechaSalida ? d.fechaSalida.slice(0, 16) : '';
 	campos.importeTotal.value     = Number(d.importeTotal).toFixed(2);
 	campos.metodoPago.value       = d.metodoPago || "";
 	campos.estadoHabitacion.value = d.estadoHabitacion;
@@ -413,32 +429,13 @@ async function eliminarReserva(reservaId, idHabitacion) {
 // ── SINCRONIZACIÓN DE RESERVAS VENCIDAS ─────────────────────
 
 async function sincronizarReservasVencidas() {
-	const ahoraIso = new Date().toISOString();
-	const { data, error } = await supabaseClient
-		.from('reserva_habitacion')
-		.select('reserva_id, id_habitacion')
-		.eq('estado_habitacion', 'Ocupada')
-		.lte('fecha_salida', ahoraIso);
-
-	if (error) {
-		manejarErrorSupabase(error, 'No se pudieron sincronizar las reservas vencidas.');
-		return;
-	}
-
-	const vencidas = data || [];
-	if (vencidas.length === 0) return;
-
-	for (const reserva of vencidas) {
-		await supabaseClient
-			.from('reserva_habitacion')
-			.update({ estado_habitacion: 'Limpieza' })
-			.eq('reserva_id', reserva.reserva_id);
-
-		await supabaseClient
-			.from('habitaciones')
-			.update({ estado: 'Limpieza', inicio_ocupacion: null })
-			.eq('id_habitacion', reserva.id_habitacion);
-	}
+	// Desactivado intencionalmente: ahora que la fecha de salida ya no se ingresa
+	// manualmente, reserva_habitacion.fecha_salida guarda un valor provisional
+	// (igual a fecha_entrada) hasta que el usuario presiona "Registrar salida" en
+	// el módulo de Habitaciones. Por eso ya no se puede usar esa columna para
+	// expirar reservas automáticamente por tiempo: la salida solo se registra de
+	// forma manual, mediante el botón "Registrar salida" y su temporizador.
+	return;
 }
 
 // ── FILTROS Y EXCEL ───────────────────────────────────────────
@@ -605,12 +602,12 @@ function validarUnicidad(reservaId, dni) {
 	if (reservaDuplicada) return { valido: false, mensaje: "El ID de reserva ya existe." };
 
 	// REQUISITO 1: Permitir nuevas reservas con el mismo DNI, siempre que la anterior haya finalizado
-	// Solo bloquear si existe una reserva ACTIVA o FUTURA con el mismo DNI
-	const ahora = new Date();
+	// Solo bloquear si existe una reserva ACTIVA con el mismo DNI. Como la fecha de
+	// salida ya no se ingresa manualmente (se registra al presionar "Registrar
+	// salida"), el estado real de ocupación se determina por estado_habitacion.
 	const dniConReservaActiva = reservas.find(r => {
 		if (r.clienteDni !== dni || r.reservaId === filaEditando) return false;
-		const fechaSalida = new Date(r.fechaSalida);
-		return fechaSalida > ahora; // Solo bloquear si la reserva es futura/activa
+		return r.estadoHabitacion === 'Ocupada';
 	});
 	if (dniConReservaActiva) {
 		return {
@@ -651,11 +648,11 @@ reservaForm.addEventListener("submit", async (e) => {
 	if (!clienteDni) { alert("Falta el DNI del cliente."); return; }
 	if (!validarDniFormato(clienteDni)) { alert("El DNI debe tener exactamente 8 dígitos."); return; }
 	if (!campos.numeroHabitacion.value) { alert("Selecciona una habitación."); return; }
-	if (!campos.fechaEntrada.value || !campos.fechaSalida.value) { alert("Ingresa las fechas de entrada y salida."); return; }
+	if (!campos.fechaEntrada.value) { alert("Ingresa la fecha de entrada."); return; }
 	if (!campos.metodoPago.value) { alert("Selecciona un método de pago."); return; }
 
 	const total = calcularImporteTotal();
-	if (!total) { alert("Revisa las fechas y el precio base."); return; }
+	if (!total) { alert("Revisa los bloques de 12 horas y el precio base."); return; }
 
 	const { valido, mensaje } = validarUnicidad(reservaId, clienteDni);
 	if (!valido) { alert(mensaje); return; }
@@ -682,12 +679,24 @@ reservaForm.addEventListener("submit", async (e) => {
 			id_habitacion:     habSeleccionada.id,
 			id_metodo_pago:    metodoSeleccionado.id_metodo_pago,
 			fecha_entrada:     new Date(campos.fechaEntrada.value).toISOString(),
-			fecha_salida:      new Date(campos.fechaSalida.value).toISOString(),
 			precio_base:       Number(campos.precioBase.value),
 			noches_estadia:    Number(campos.nochesEstadia.value) || 1,
 			importe_total:     total,
 			estado_habitacion: campos.estadoHabitacion.value
 		};
+
+		if (!filaEditando) {
+			// Reserva nueva: aún no hay checkout real. La base de datos exige
+			// (chk_reserva_fechas) que fecha_salida sea posterior a fecha_entrada,
+			// así que se guarda un valor provisional = entrada + bloques de 12h
+			// (el mismo estimado usado para el importe). "Registrar salida"
+			// (módulo Habitaciones) lo reemplaza por la hora real de salida.
+			const bloquesEstimado = Number(campos.nochesEstadia.value) || 1;
+			const entradaMs = new Date(campos.fechaEntrada.value).getTime();
+			datosReserva.fecha_salida = new Date(entradaMs + bloquesEstimado * 12 * 60 * 60 * 1000).toISOString();
+		}
+		// Si se está editando una reserva existente, fecha_salida NO se incluye
+		// en el payload para no sobrescribir una salida real ya registrada.
 
 		if (filaEditando) {
 			const { error } = await supabaseClient.from('reserva_habitacion').update(datosReserva).eq('reserva_id', filaEditando);
@@ -712,7 +721,8 @@ reservaForm.addEventListener("submit", async (e) => {
 
 		await cargarTodoYRenderizar();
 	} catch (error) {
-		manejarErrorSupabase(error, 'No se pudo guardar la reserva.');
+		const detalle = [error?.message, error?.details, error?.hint].filter(Boolean).join(' | ');
+		manejarErrorSupabase(error, `No se pudo guardar la reserva: ${detalle || error}`);
 	} finally {
 		if (submitBtn) submitBtn.disabled = false;
 	}
@@ -721,8 +731,7 @@ reservaForm.addEventListener("submit", async (e) => {
 // ── EVENTOS ───────────────────────────────────────────────────
 
 campos.precioBase.addEventListener("input", calcularImporteTotal);
-campos.fechaEntrada.addEventListener("change", calcularImporteTotal);
-campos.fechaSalida.addEventListener("change", calcularImporteTotal);
+campos.nochesEstadia.addEventListener("input", calcularImporteTotal);
 campos.numeroHabitacion.addEventListener("change", () => {
 	asignarTipoHabitacionAutomaticamente();
 	calcularImporteTotal();
