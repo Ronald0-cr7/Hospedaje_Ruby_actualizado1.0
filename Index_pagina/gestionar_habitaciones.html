@@ -109,9 +109,16 @@
                 <input type="hidden" id="rr-numero-habitacion">
                 <input type="hidden" id="rr-id-habitacion">
 
-                <div class="campo-reserva">
-                    <label for="rr-cliente-registrado">Cliente registrado:</label>
-                    <select id="rr-cliente-registrado">
+                <div class="campo-reserva buscador-cliente-wrapper buscador-cliente-v2">
+                    <label for="rr-buscador-cliente">Cliente</label>
+                    <div class="barra-busqueda-cliente">
+                        <span class="icono-lupa-cliente">🔍</span>
+                        <input type="text" id="rr-buscador-cliente" autocomplete="off"
+                               placeholder="Busca por nombre o DNI">
+                    </div>
+                    <small id="rr-cliente-seleccionado-info" class="cliente-seleccionado-info"></small>
+                    <div id="rr-lista-clientes-sugeridos" class="lista-sugerencias lista-sugerencias-v2"></div>
+                    <select id="rr-cliente-registrado" style="display:none">
                         <option value="">-- Cliente nuevo --</option>
                     </select>
                 </div>
