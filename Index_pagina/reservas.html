@@ -30,9 +30,16 @@
             <h2>Reservar habitación para el cliente</h2>
 
             <form id="reserva-form" class="habitacion">
-                <div>
-                    <label for="cliente-registrado">Cliente registrado:</label>
-                    <select id="cliente-registrado">
+                <div class="buscador-cliente-wrapper buscador-cliente-v2">
+                    <label for="buscador-cliente">Cliente</label>
+                    <div class="barra-busqueda-cliente">
+                        <span class="icono-lupa-cliente">🔍</span>
+                        <input type="text" id="buscador-cliente" autocomplete="off"
+                               placeholder="Busca por nombre o DNI">
+                    </div>
+                    <small id="cliente-seleccionado-info" class="cliente-seleccionado-info"></small>
+                    <div id="lista-clientes-sugeridos" class="lista-sugerencias lista-sugerencias-v2"></div>
+                    <select id="cliente-registrado" style="display:none">
                         <option value="">Selecciona un cliente guardado o registra uno nuevo</option>
                     </select>
                 </div>
