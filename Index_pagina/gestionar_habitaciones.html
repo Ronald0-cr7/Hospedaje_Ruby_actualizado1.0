@@ -133,16 +133,13 @@
                     <label for="rr-cliente-residencia">Residencia:</label>
                     <input type="text" id="rr-cliente-residencia">
                 </div>
-                <div class="fila-2col">
-                    <div class="campo-reserva">
-                        <label for="rr-fecha-entrada">Entrada:</label>
-                        <input type="datetime-local" id="rr-fecha-entrada" required>
-                    </div>
-                    <div class="campo-reserva">
-                        <label for="rr-fecha-salida">Salida:</label>
-                        <input type="datetime-local" id="rr-fecha-salida" required>
-                    </div>
+                <div class="campo-reserva">
+                    <label for="rr-fecha-entrada">Entrada:</label>
+                    <input type="datetime-local" id="rr-fecha-entrada" required>
                 </div>
+                <!-- La fecha de salida ya no se ingresa aquí: se registra automáticamente
+                     al presionar "Registrar salida" sobre la tarjeta de la habitación,
+                     usando el tiempo transcurrido del temporizador. -->
                 <div class="fila-2col">
                     <div class="campo-reserva">
                         <label for="rr-precio-base">Tarifa / 12h (S/):</label>
@@ -150,7 +147,7 @@
                     </div>
                     <div class="campo-reserva">
                         <label for="rr-bloques">Bloques de 12h:</label>
-                        <input type="number" id="rr-bloques" readonly>
+                        <input type="number" id="rr-bloques" min="1" step="1" value="1" required>
                     </div>
                 </div>
                 <div class="fila-2col">
