@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fecha: v.fecha_hora_venta,
             clienteId: v.id_cliente,
             clienteNombre: v.cliente_nombre,
-            metodoPago: v.metodo_pago?.nombre || 'Efectivo',
+            metodoPago: v.metodo_pago?.nombre || 'EFECTIVO',
             detalles: (v.detalle_venta || []).map(d => ({
                 productoId: d.id_producto,
                 productoNombre: d.producto_nombre,
@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${v.ventaId}</td>
                 <td>${formatearFecha(v.fecha)}</td>
                 <td>${v.clienteNombre || 'Venta sin cliente'}</td>
-                <td>${v.metodoPago || 'Efectivo'}</td>
+                <td>${v.metodoPago || 'EFECTIVO'}</td>
                 <td>${productosTexto}</td>
                 <td>${Number(v.subtotal).toFixed(2)}</td>
                 <td>${Number(v.igv).toFixed(2)}</td>
@@ -477,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ventaSubtotal.value = '0.00';
             ventaIgv.value = '0.00';
             ventaTotal.value = '0.00';
-            ventaMetodoPago.value = 'Efectivo';
+            ventaMetodoPago.value = 'EFECTIVO';
             ventaSinCliente.checked = false;
             ventaEditandoId = null;
             submitBtn.textContent = 'Registrar Venta';
@@ -502,7 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ID_Venta: v.ventaId,
             Fecha: v.fecha,
             Cliente: v.clienteNombre || 'Venta sin cliente',
-            MetodoPago: v.metodoPago || 'Efectivo',
+            MetodoPago: v.metodoPago || 'EFECTIVO',
             Productos: v.detalles.map((detalle) => `${detalle.productoNombre} x${detalle.cantidad}`).join(' | '),
             Subtotal: Number(v.subtotal).toFixed(2),
             IGV: Number(v.igv).toFixed(2),
@@ -524,11 +524,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('resumen-metodos-ventas');
         if (!container) return;
         const resumen = ventas.reduce((acc, v) => {
-            const m = v.metodoPago || 'Efectivo';
+            const m = v.metodoPago || 'EFECTIVO';
             acc[m] = (acc[m] || 0) + Number(v.total || 0);
             return acc;
         }, {});
-        const iconos = { 'Efectivo': '💵', 'Tarjeta': '💳', 'Transferencia': '🏦', 'Yape/Plin': '📱' };
+        const iconos = { 'EFECTIVO': '💵', 'Yape/ARI': '📱', 'Visa/ARI': '💳', 'Yape E': '📲' };
         container.innerHTML = Object.entries(resumen).map(([m, t]) =>
             `<div class="metodo-card"><strong>${iconos[m] || '💰'} ${m}</strong><span>S/ ${t.toFixed(2)}</span></div>`
         ).join('') || '<p style="color:#94a3b8;font-size:.85rem">Sin ventas registradas</p>';
