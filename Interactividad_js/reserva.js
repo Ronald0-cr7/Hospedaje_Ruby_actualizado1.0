@@ -327,12 +327,18 @@ function poblarSelectHabitaciones() {
 }
 
 function poblarSelectMetodoPago() {
+	const iconosMetodo = {
+		"EFECTIVO": "💵",
+		"Yape/ARI": "📱",
+		"Visa/ARI": "💳",
+		"Yape E": "📲"
+	};
 	const valorActual = campos.metodoPago.value;
 	campos.metodoPago.innerHTML = '<option value="">Seleccione método de pago</option>';
 	metodosPago.forEach(m => {
 		const opt = document.createElement('option');
 		opt.value = m.nombre;
-		opt.textContent = m.nombre;
+		opt.textContent = `${iconosMetodo[m.nombre] || "💰"} ${m.nombre}`;
 		campos.metodoPago.appendChild(opt);
 	});
 	campos.metodoPago.value = valorActual;
