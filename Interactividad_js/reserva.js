@@ -443,15 +443,15 @@ function crearFilaDesdeDatos(d) {
 	fila.innerHTML = `
 		<td>${d.reservaId || "—"}</td>
 		<td>${d.clienteId || "—"}</td>
+		<td>${d.numeroHabitacion || "—"}</td>
+		<td>${formatearFecha(d.fechaEntrada)}</td>
 		<td>${d.clienteNombre || "—"}</td>
 		<td>${d.clienteFechaNacimiento || "—"}</td>
 		<td>${d.clienteDni || "—"}</td>
 		<td>${d.clienteResidencia || "—"}</td>
-		<td>${d.numeroHabitacion || "—"}</td>
 		<td>${d.tipoHabitacion || "—"}</td>
 		<td>S/ ${Number(d.precioBase).toFixed(2)}</td>
 		<td>${noches}</td>
-		<td>${formatearFecha(d.fechaEntrada)}</td>
 		<td>${formatearSalida(d)}</td>
 		<td>S/ ${Number(d.importeTotal).toFixed(2)}</td>
 		<td>${d.metodoPago || "No registrado"}</td>
