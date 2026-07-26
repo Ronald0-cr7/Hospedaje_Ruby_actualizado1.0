@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ventas = (data || []).map(v => ({
             clienteId: v.id_cliente,
             total: Number(v.total) || 0,
-            metodoPago: v.metodo_pago?.nombre || 'Efectivo'
+            metodoPago: v.metodo_pago?.nombre || 'EFECTIVO'
         }));
     }
 
@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // REQUISITO 6: Calcular ingresos por método de pago (ventas y reservas separados)
     function calcularResumenPorMetodo() {
         const resumenVentas = ventas.reduce((acc, v) => {
-            const m = v.metodoPago || 'Efectivo';
+            const m = v.metodoPago || 'EFECTIVO';
             acc[m] = (acc[m] || 0) + Number(v.total || 0);
             return acc;
         }, {});
