@@ -49,11 +49,16 @@
                     </div>
 
                     <div class="form-row-2">
-                        <div class="form-field">
-                            <label for="venta-cliente">Cliente</label>
-                            <select id="venta-cliente">
-                                <option value="">Seleccione un cliente</option>
-                            </select>
+                        <div class="form-field buscador-cliente-wrapper-venta">
+                            <label for="venta-buscador-cliente">Cliente</label>
+                            <div class="barra-busqueda-cliente-venta">
+                                <span class="icono-lupa-cliente">🔍</span>
+                                <input type="text" id="venta-buscador-cliente" autocomplete="off"
+                                       placeholder="Busca por nombre o DNI">
+                            </div>
+                            <small id="venta-cliente-seleccionado-info" class="cliente-seleccionado-info"></small>
+                            <div id="venta-lista-clientes-sugeridos" class="lista-sugerencias lista-sugerencias-v2"></div>
+                            <input type="hidden" id="venta-cliente">
                         </div>
                         <div class="form-field">
                             <label for="venta-metodo-pago">Método de pago</label>
