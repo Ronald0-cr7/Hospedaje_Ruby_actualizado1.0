@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return (data || []).map(v => ({
             clienteId: v.id_cliente,
             total: Number(v.total) || 0,
-            metodoPago: v.metodo_pago?.nombre || 'Efectivo',
+            metodoPago: v.metodo_pago?.nombre || 'EFECTIVO',
             detalles: (v.detalle_venta || []).map(d => ({ productoNombre: d.producto_nombre, cantidad: Number(d.cantidad) }))
         }));
     }
@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderizarMetodosPago(ventas) {
         const resumen = ventas.reduce((acumulado, venta) => {
-            const metodo = venta.metodoPago || 'Efectivo';
+            const metodo = venta.metodoPago || 'EFECTIVO';
             acumulado[metodo] = (acumulado[metodo] || 0) + Number(venta.total || 0);
             return acumulado;
         }, {});
