@@ -407,6 +407,16 @@ function formatearFecha(iso) {
 	return f.toLocaleString("es-PE", { year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
 }
 
+// La fecha de nacimiento llega desde Supabase como "AAAA-MM-DD" (sin hora).
+// Se parsea el string directo (sin pasar por `new Date`) para evitar que el
+// desfase de huso horario del navegador la corra un día hacia atrás.
+function formatearFechaNacimiento(fecha) {
+	if (!fecha) return "—";
+	const [anio, mes, dia] = String(fecha).split("-");
+	if (!anio || !mes || !dia) return fecha;
+	return `${dia}/${mes}/${anio}`;
+}
+
 // Mientras no se presiona "Registrar salida" (módulo Habitaciones), fecha_salida
 // guarda un valor provisional (entrada + bloques estimados). Se muestra "En curso"
 // en vez de esa fecha para no confundirla con una salida real: el estado real de
@@ -446,7 +456,7 @@ function crearFilaDesdeDatos(d) {
 		<td>${d.numeroHabitacion || "—"}</td>
 		<td>${formatearFecha(d.fechaEntrada)}</td>
 		<td>${d.clienteNombre || "—"}</td>
-		<td>${d.clienteFechaNacimiento || "—"}</td>
+		<td>${formatearFechaNacimiento(d.clienteFechaNacimiento)}</td>
 		<td>${d.clienteDni || "—"}</td>
 		<td>${d.clienteResidencia || "—"}</td>
 		<td>${d.tipoHabitacion || "—"}</td>
@@ -553,10 +563,10 @@ function renderizarResumenMetodosReserva(lista = reservas) {
 	if (!resumenMetodosReservas) return;
 
 	const iconos = {
-		"Efectivo": "💵",
-		"Tarjeta": "💳",
-		"Transferencia": "🏦",
-		"Yape/Plin": "📱"
+		"EFECTIVO": "💵",
+		"Yape/ARI": "📱",
+		"Visa/ARI": "💳",
+		"Yape E": "📲"
 	};
 
 	const resumen = (lista || []).reduce((acc, r) => {
@@ -595,7 +605,7 @@ function exportReservasExcel() {
 		ID_Reserva:       r.reservaId,
 		ID_Cliente:       r.clienteId,
 		Cliente:          r.clienteNombre,
-		FechaNacimiento:  r.clienteFechaNacimiento,
+		FechaNacimiento:  formatearFechaNacimiento(r.clienteFechaNacimiento),
 		DNI:              r.clienteDni,
 		Residencia:       r.clienteResidencia,
 		N_Habitacion:     r.numeroHabitacion,
