@@ -3,6 +3,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const ventaFecha = document.getElementById('venta-fecha');
     const ventaSinCliente = document.getElementById('venta-sin-cliente');
     const ventaCliente = document.getElementById('venta-cliente');
+    const ventaBuscadorCliente = document.getElementById('venta-buscador-cliente');
+    const ventaClienteSeleccionadoInfo = document.getElementById('venta-cliente-seleccionado-info');
+    const ventaListaClientesSugeridos = document.getElementById('venta-lista-clientes-sugeridos');
     const ventaMetodoPago = document.getElementById('venta-metodo-pago');
     const ventaProducto = document.getElementById('venta-producto');
     const ventaCantidad = document.getElementById('venta-cantidad');
@@ -90,7 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function cargarTodo() {
         await Promise.all([cargarClientes(), cargarProductosDb(), cargarVentasDb()]);
-        cargarClientesEnSelect();
         cargarProductosEnSelect();
         mostrarVentas();
     }
@@ -126,16 +128,76 @@ document.addEventListener('DOMContentLoaded', () => {
 
     }
 
-    function cargarClientesEnSelect() {
-        ventaCliente.innerHTML = `
-            <option value="">Seleccione un cliente</option>
-            <option value="CLIENTE_LIBRE">Cliente Libre</option>
-        `;
-        clientes.forEach((cliente) => {
-            const option = document.createElement('option');
-            option.value = cliente.id_cliente;
-            option.textContent = `${cliente.apellidos_nombres} - ${cliente.dni}`;
-            ventaCliente.appendChild(option);
+    function textoClienteBuscadorVenta(c) {
+        return `${c.apellidos_nombres} — DNI: ${c.dni}`;
+    }
+
+    function renderSugerenciasClientesVenta(filtro) {
+        if (!ventaListaClientesSugeridos) return;
+        const texto = filtro.trim().toLowerCase();
+
+        if (!texto) { ventaListaClientesSugeridos.style.display = "none"; ventaListaClientesSugeridos.innerHTML = ""; return; }
+
+        const coincidencias = clientes.filter(c =>
+            (c.apellidos_nombres || '').toLowerCase().includes(texto) ||
+            String(c.dni || '').toLowerCase().includes(texto)
+        ).slice(0, 8);
+
+        ventaListaClientesSugeridos.innerHTML = "";
+
+        if (!coincidencias.length) {
+            const vacio = document.createElement('div');
+            vacio.className = 'item-sugerencia sin-resultado';
+            vacio.textContent = 'Sin coincidencias — verifica el nombre o DNI, o registra al cliente primero en el módulo Clientes';
+            ventaListaClientesSugeridos.appendChild(vacio);
+            ventaListaClientesSugeridos.style.display = "block";
+            return;
+        }
+
+        coincidencias.forEach(c => {
+            const item = document.createElement('div');
+            item.className = 'item-sugerencia';
+            item.innerHTML = `
+                <div class="item-sugerencia-info">
+                    <div class="item-sugerencia-nombre">${(c.apellidos_nombres || '').toUpperCase()}</div>
+                    <div class="item-sugerencia-dni"><span class="badge-dni-icono">🪪</span> DNI - ${c.dni}</div>
+                </div>
+                <button type="button" class="btn-agregar-cliente" aria-label="Seleccionar cliente">+</button>
+            `;
+            item.addEventListener('click', () => seleccionarClienteVentaDesdeBusqueda(c));
+            ventaListaClientesSugeridos.appendChild(item);
+        });
+        ventaListaClientesSugeridos.style.display = "block";
+    }
+
+    function seleccionarClienteVentaDesdeBusqueda(c) {
+        ventaCliente.value = c.id_cliente;
+        if (ventaBuscadorCliente) ventaBuscadorCliente.value = textoClienteBuscadorVenta(c);
+        if (ventaClienteSeleccionadoInfo) ventaClienteSeleccionadoInfo.innerHTML = `✅ <strong>${c.apellidos_nombres.toUpperCase()}</strong> — DNI ${c.dni}`;
+        if (ventaListaClientesSugeridos) { ventaListaClientesSugeridos.style.display = "none"; ventaListaClientesSugeridos.innerHTML = ""; }
+    }
+
+    function limpiarBusquedaClienteVenta() {
+        ventaCliente.value = "";
+        if (ventaBuscadorCliente) ventaBuscadorCliente.value = "";
+        if (ventaClienteSeleccionadoInfo) ventaClienteSeleccionadoInfo.textContent = "";
+        if (ventaListaClientesSugeridos) { ventaListaClientesSugeridos.style.display = "none"; ventaListaClientesSugeridos.innerHTML = ""; }
+    }
+
+    if (ventaBuscadorCliente) {
+        ventaBuscadorCliente.addEventListener("input", () => {
+            // Si el usuario edita el texto tras haber elegido un cliente, se invalida la selección
+            if (ventaCliente.value) {
+                ventaCliente.value = "";
+                if (ventaClienteSeleccionadoInfo) ventaClienteSeleccionadoInfo.textContent = "";
+            }
+            renderSugerenciasClientesVenta(ventaBuscadorCliente.value);
+        });
+        ventaBuscadorCliente.addEventListener("focus", () => renderSugerenciasClientesVenta(ventaBuscadorCliente.value));
+        document.addEventListener("click", (e) => {
+            if (!e.target.closest(".buscador-cliente-wrapper-venta")) {
+                if (ventaListaClientesSugeridos) ventaListaClientesSugeridos.style.display = "none";
+            }
         });
     }
 
@@ -320,24 +382,19 @@ document.addEventListener('DOMContentLoaded', () => {
             return { clienteId: null, clienteNombre: 'Venta sin cliente' };
         }
 
-        if (!ventaCliente.value) throw new Error('Seleccione un cliente.');
-
-        if (ventaCliente.value === 'CLIENTE_LIBRE') {
-            return { clienteId: null, clienteNombre: 'Cliente Libre' };
-        }
+        if (!ventaCliente.value) throw new Error('Busca y selecciona un cliente (o marca "Registrar sin cliente").');
 
         const cliente = clientes.find((item) => item.id_cliente === ventaCliente.value);
         return {
             clienteId: ventaCliente.value,
-            clienteNombre: cliente ? cliente.apellidos_nombres : ventaCliente.selectedOptions[0].textContent
+            clienteNombre: cliente ? cliente.apellidos_nombres : ''
         };
     }
 
     function actualizarEstadoCliente() {
         const esSinCliente = ventaSinCliente.checked;
-        ventaCliente.disabled = esSinCliente;
-        ventaCliente.required = !esSinCliente;
-        if (esSinCliente) ventaCliente.value = '';
+        if (ventaBuscadorCliente) ventaBuscadorCliente.disabled = esSinCliente;
+        if (esSinCliente) limpiarBusquedaClienteVenta();
     }
 
     // ── EDICIÓN ───────────────────────────────────────────────────
@@ -346,6 +403,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ventaEditandoId = null;
         carritoVenta = [];
         form.reset();
+        limpiarBusquedaClienteVenta();
+        if (ventaBuscadorCliente) ventaBuscadorCliente.disabled = false;
         ventaFecha.value = fechaAhoraLocal();
         submitBtn.textContent = 'Registrar Venta';
         cancelarEdicionBtn.classList.add('oculto');
@@ -369,7 +428,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // el stock) y luego se insertan los nuevos.
         if (venta.clienteId) {
             ventaSinCliente.checked = false;
-            ventaCliente.value = venta.clienteId;
+            const cliente = clientes.find(c => c.id_cliente === venta.clienteId);
+            if (cliente) {
+                seleccionarClienteVentaDesdeBusqueda(cliente);
+            } else {
+                ventaCliente.value = venta.clienteId;
+                if (ventaBuscadorCliente) ventaBuscadorCliente.value = venta.clienteNombre || '';
+            }
         } else {
             ventaSinCliente.checked = true;
         }
