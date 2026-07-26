@@ -112,13 +112,19 @@ function poblarSelectClientesRapido() {
 }
 
 function poblarSelectMetodoPagoRapido() {
+    const iconosMetodo = {
+        "EFECTIVO": "💵",
+        "Yape/ARI": "📱",
+        "Visa/ARI": "💳",
+        "Yape E": "📲"
+    };
     const sel = document.getElementById("rr-metodo-pago");
     if (!sel) return;
     sel.innerHTML = '<option value="">Seleccione</option>';
     metodosPagoReserva.forEach(m => {
         const opt = document.createElement("option");
         opt.value = m.nombre;
-        opt.textContent = m.nombre;
+        opt.textContent = `${iconosMetodo[m.nombre] || "💰"} ${m.nombre}`;
         sel.appendChild(opt);
     });
 }
